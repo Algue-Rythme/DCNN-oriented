@@ -1,27 +1,24 @@
 import tensorflow as tf
-
 import random_walk
 
 
-def map_symmetric_features(graph, num_hops):
-    p_star, p_r_star = random_walk.get_diffusion_operators(graph, num_hops)
+def map_symmetric_features(p, features, num_hops):
+    p_star, p_r_star = random_walk.get_diffusion_operators(p, num_hops)
     pp = tf.concat([p_star, p_r_star], axis=1)
-    xx = tf.concat([graph.features, graph.features], axis=1)
+    xx = tf.concat([features, features], axis=1)
     yy = tf.einsum("ilj,lk->ijk", pp, xx)
     return yy
 
 
-def map_forward_features(graph, num_hops):
-    p = graph.transition_matrix
+def map_forward_features(p, features, num_hops):
     p_star = random_walk.get_power_serie(p, num_hops)
-    x = graph.features
-    y = tf.einsum("ilj,lk->ijk", p_star, x)
+    y = tf.einsum("ilj,lk->ijk", p_star, features)
     return y
 
 
 class DiffusionConvolution(tf.keras.layers.Layer):
 
-    def __init__(self, nb_features, nb_hops):
+    def __init__(self, nb_features, num_hops):
         super(DiffusionConvolution, self).__init__()
         self._dim_features = nb_features
         self._num_hops = num_hops
@@ -38,11 +35,11 @@ class DiffusionConvolution(tf.keras.layers.Layer):
 
 class DCNN(tf.keras.Model):
 
-    def __init__(self, num_features, num_hops, num_classes):
+    def __init__(self, num_features, num_hops, output_dim):
         super(DCNN, self).__init__(name='')
         self._dc = DiffusionConvolution(num_features, num_hops)
         self._fc1 = tf.keras.layers.Dense(256)
-        self._fc2 = tf.keras.layers.Dense(num_classes)
+        self._fc2 = tf.keras.layers.Dense(output_dim)
 
 
     def call(self, x):
@@ -51,5 +48,5 @@ class DCNN(tf.keras.Model):
         x = self._fc1(x)
         x = tf.nn.relu(x)
         x = self._fc2(x)
-        x = tf.nn.softmax(x)
+        # last activation function is part of the loss
         return x

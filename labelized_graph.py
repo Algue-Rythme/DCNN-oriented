@@ -1,4 +1,3 @@
-import numpy as np
 import tensorflow as tf
 
 
@@ -20,21 +19,24 @@ class DenseLabelizedGraph:
         self._features = features
         self._adj = adj
 
-    def load_from_text(self, filename):
+    def load_topology_from_text(self, filename):
         with open(filename, "r") as file:
             num_nodes = int(input(file))
-            self._nb_nodes = num_nodes
-            features = []
-            for _ in range(self.num_nodes):
-                node_features = file.readline().split()
-                features.append([float(feature) for feature in node_features])
-            self._features = np.array(features, dtype=np.float32)
+            self._num_nodes = num_nodes
             adj = []
             for _ in range(self.num_nodes):
                 adj_line = file.readline()
                 adj.append([float(digit) for digit in adj_line])
-            self._adj = np.array(adj, dtype=np.float32)
-            self._num_edges = np.count_nonzero(self._adj)
+            self._adj = tf.constant(adj, dtype=tf.float32)
+            self._num_edges = tf.math.count_nonzero(self._adj)
+
+    def load_features_from_text(self, filename):
+        with open(filename, "r") as file:
+            features = []
+            for _ in range(self.num_nodes):
+                node_features = file.readline().split()
+                features.append([float(feature) for feature in node_features])
+            self._features = tf.constant(features, dtype=tf.float32)
 
     # getter methods
 
@@ -71,7 +73,7 @@ class DenseLabelizedGraph:
         graph = DenseLabelizedGraph()
         graph.load_from_raw_matrices(
             self.num_nodes, self.num_edges,
-            self.features, self.adj.T)
+            self.features, tf.transpose(self.adj))
         return graph
 
     # printing and vizualization methods

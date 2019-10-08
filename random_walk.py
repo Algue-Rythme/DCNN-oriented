@@ -46,12 +46,12 @@ def get_reversed_time_distribution(p):
     mu = get_naive_stationary_distribution(p)
     # warning with transient states
     mu_inversed = tf.math.divide_no_nan(tf.ones(shape=mu.shape), mu)
-    p_r = tf.dot(mu_inversed, tf.dot(p.T, mu))
+    p_t = tf.transpose(p)
+    p_r = tf.dot(mu_inversed, tf.dot(p_t, mu))
     return p_r
 
 
-def get_diffusion_operators(graph, num_hops, include_identity=True):
-    p = graph.transition_matrix
+def get_diffusion_operators(p, num_hops, include_identity=True):
     p_r = get_reversed_time_distribution(p)
     p_star = get_power_serie(p, num_hops, include_identity)
     p_r_star = get_power_serie(p_r, num_hops, include_identity)
