@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class DenseLabelizedGraph:
+class DenseLabeledGraph:
 
     def __init__(self):
         self._num_nodes = 0
@@ -21,12 +21,12 @@ class DenseLabelizedGraph:
 
     def load_topology_from_text(self, filename):
         with open(filename, "r") as file:
-            num_nodes = int(input(file))
+            num_nodes = int(file.readline())
             self._num_nodes = num_nodes
             adj = []
             for _ in range(self.num_nodes):
-                adj_line = file.readline()
-                adj.append([float(digit) for digit in adj_line])
+                adj_line = file.readline()  # remove \n final character
+                adj.append([float(digit) for digit in adj_line[:-1]])
             self._adj = tf.constant(adj, dtype=tf.float32)
             self._num_edges = tf.math.count_nonzero(self._adj)
 
@@ -66,11 +66,12 @@ class DenseLabelizedGraph:
     def transition_matrix(self):
         if self._transition is None:
             row_sums = tf.reduce_sum(self.adj, axis=1, keepdims=True)
+            row_sums = tf.maximum(row_sums, tf.constant(1., dtype=tf.float32))
             self._transition = self.adj / row_sums
         return self._transition
 
     def get_transpose_graph(self):
-        graph = DenseLabelizedGraph()
+        graph = DenseLabeledGraph()
         graph.load_from_raw_matrices(
             self.num_nodes, self.num_edges,
             self.features, tf.transpose(self.adj))
@@ -78,5 +79,8 @@ class DenseLabelizedGraph:
 
     # printing and vizualization methods
 
-    def summary(self):
+    def summary(self, verbose=0):
         print("Graph with %d nodes and %d edges"%(self.num_nodes, self.num_edges))
+        if verbose == 1:
+            print('Features vector: ', self.features)
+            print('Adjacency matrix: ', self._adj)

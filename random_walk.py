@@ -15,10 +15,10 @@ def get_power_serie(p, num_hops, include_identity=True):
         p_star: tensor of shape NxHxN with H=nb_hops if include_identity is False,
                 of H=nb_hops+1 otherwise, and N=graph.nb_nodes in both cases
     """
-    p_seq = [tf.eye(N=p.shape[0])] if include_identity else [p]
+    p_seq = [tf.eye(num_rows=p.shape[0])] if include_identity else [p]
     for _ in range(num_hops):
-        p_seq.append(tf.expand_dims(tf.matmul(p_seq[-1], p), axis=1))
-    p_star = tf.concat(p_seq, axis=1)
+        p_seq.append(tf.matmul(p_seq[-1], p))
+    p_star = tf.stack(p_seq, axis=1)
     return p_star
 
 
@@ -26,8 +26,7 @@ def get_naive_stationary_distribution(p):
     n = p.shape[0]
     # n**2 is the average length of a random walk in a graph before visiting
     # every node, we need at least this to detect transient states
-    # n**3 is a way to reach this value
-    max_it = (n ** 3)
+    max_it = (n ** 2)
     p_lim = tf.math.pow(p, max_it)
     # average instead of only one column for improved robustness
     # one should check the error introduced by this method
@@ -49,10 +48,3 @@ def get_reversed_time_distribution(p):
     p_t = tf.transpose(p)
     p_r = tf.dot(mu_inversed, tf.dot(p_t, mu))
     return p_r
-
-
-def get_diffusion_operators(p, num_hops, include_identity=True):
-    p_r = get_reversed_time_distribution(p)
-    p_star = get_power_serie(p, num_hops, include_identity)
-    p_r_star = get_power_serie(p_r, num_hops, include_identity)
-    return p_star, p_r_star
