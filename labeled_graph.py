@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+import random_walk
+
 
 class DenseLabeledGraph:
 
@@ -65,9 +67,7 @@ class DenseLabeledGraph:
     @property
     def transition_matrix(self):
         if self._transition is None:
-            row_sums = tf.reduce_sum(self.adj, axis=1, keepdims=True)
-            row_sums = tf.maximum(row_sums, tf.constant(1., dtype=tf.float32))
-            self._transition = self.adj / row_sums
+            self._transition = random_walk.from_adjacency_to_transition(self.adj)
         return self._transition
 
     def get_transpose_graph(self):

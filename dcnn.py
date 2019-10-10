@@ -2,7 +2,7 @@ import tensorflow as tf
 import random_walk
 
 
-def diffuse_features(orientation, p, features, num_hops, include_identity=True):
+def diffuse_features(orientation, p, features, num_hops):
     """Returns the product of diffusion operator with the features.
 
     Args:
@@ -15,24 +15,22 @@ def diffuse_features(orientation, p, features, num_hops, include_identity=True):
     Returns:
         float32 tensor of shape NxHxF
     """
-    p_star = random_walk.get_power_serie(p, num_hops, include_identity)
-    if orientation == 'bidirectional':
+    p_star = random_walk.get_power_serie(p, num_hops)
+    if orientation == 'reversed':
         p_r = random_walk.get_reversed_time_distribution(p)
-        p_r_star = random_walk.get_power_serie(p_r, num_hops, include_identity)
+        p_r_star = random_walk.get_power_serie(p_r, num_hops)
         diffusion = tf.concat([p_star, p_r_star], axis=1)
-        x = tf.concat([features, features], axis=1)
     else:
         diffusion = p_star
-        x = features
-    y = tf.einsum("ijl,lk->ijk", diffusion, x)
+    y = tf.einsum("ijl,lk->ijk", diffusion, features)
     return y
 
 
 class DiffusionConvolution(tf.keras.layers.Layer):
 
-    def __init__(self, nb_features, num_hops, bias=True):
+    def __init__(self, num_features, num_hops, bias=True):
         super(DiffusionConvolution, self).__init__()
-        self._dim_features = nb_features
+        self._dim_features = num_features
         self._num_hops = num_hops
         self._kernel = None
         self._bias = None
@@ -67,7 +65,7 @@ class DCNN(tf.keras.Model):
         self._num_features = num_features
         self._num_hops = num_hops
         self._output_dim = output_dim
-        self._dc = DiffusionConvolution(num_features, num_hops, bias)
+        self._dc = DiffusionConvolution(self._num_features, self._num_hops, bias)
         self._fc = tf.keras.layers.Dense(output_dim)
 
 
