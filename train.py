@@ -6,24 +6,9 @@ import dataset
 import dcnn
 import labeled_graph
 import utils
-import random_walk
 
 
-def train(model, training_set, loss_fn, num_epochs, num_batchs):
-    optimizer = tf.optimizers.Adam()
-    for _ in range(num_epochs):
-        progbar = tf.keras.utils.Progbar(num_batchs)
-        for batch, (x_train, y_train) in enumerate(training_set.take(num_batchs)):
-            # print(batch)
-            with tf.GradientTape() as tape:
-                output = model(x_train)
-                loss_value = loss_fn(y_train, output)
-            grads = tape.gradient(loss_value, model.trainable_weights)
-            optimizer.apply_gradients(zip(grads, model.trainable_weights))
-            progbar.update(batch+1, [('loss', float(loss_value.numpy().mean()))])
-
-
-def node_classification_task(
+def learn_toy(
         topology_file, features_file,
         orientation, num_hops, target_dims=None):
     if target_dims is None:
@@ -49,39 +34,61 @@ def node_classification_task(
     model.evaluate(toy_dataset, steps=num_nodes)
 
 
-def learn_cora_dataset(orientation, num_hops, num_epochs, batch_size, split_ratio):
-    adj, features, labels = dataset.read_cora(forward=True, reverse=True)
-    p = random_walk.from_adjacency_to_transition(tf.constant(adj))
-    features = dcnn.diffuse_features(orientation, p, features, num_hops)
-    train_set, test_set = utils.shuffle_and_split(features, labels, split_ratio)
-    num_train_examples = int(tf.shape(train_set[0])[0])
-    train_set = tf.data.Dataset.from_tensor_slices(train_set).repeat()
-    train_set = train_set.shuffle(batch_size * 8).batch(batch_size)
-    num_features, num_classes = 1433, 7
-    if orientation == 'reversed':
-        num_hops *= 2
-    model = dcnn.DCNN(num_features, num_hops, num_classes, bias=False)
-    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-    model.compile(optimizer='adam', loss=loss_fn, metrics=['accuracy'])
-    test_set = tf.data.Dataset.from_tensor_slices(test_set).batch(256)
-    num_batchs = int(math.ceil(num_train_examples / batch_size))
-    for epoch in range(num_epochs):
-        print('Epoch %d'%(epoch+1))
-        model.fit(train_set, epochs=1, steps_per_epoch=num_batchs)
-        model.evaluate(test_set)
-        print('')
+def node_classification(dataset_reader, orientation, forward, reverse,
+                        num_hops, num_epochs, batch_size, split_ratio,
+                        bias=False, optimizer='adam'):
+    with tf.device('/cpu:0'):
+        p, features, labels, num_classes = dataset_reader(forward, reverse)
+        features = dcnn.sparse_diffuse_features(orientation, p, features, num_hops)
+        del p  # save memory
+        train_set, test_set = utils.shuffle_and_split(features, labels, split_ratio)
+        num_train_examples = int(tf.shape(train_set[0])[0])
+        dcnn_num_hops = int(tf.shape(train_set[0])[1])
+        num_features = int(tf.shape(train_set[0])[2])
+        train_set = tf.data.Dataset.from_tensor_slices(train_set).repeat()
+        train_set = train_set.shuffle(batch_size * 8).batch(batch_size)
+        test_set = tf.data.Dataset.from_tensor_slices(test_set).batch(256)
+        model = dcnn.DCNN(num_features, dcnn_num_hops, num_classes, bias)
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        model.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
+    with tf.device('/gpu:0'):
+        num_batchs = int(math.ceil(num_train_examples / batch_size))
+        for epoch in range(num_epochs):
+            print('Epoch %d'%(epoch+1))
+            model.fit(train_set, epochs=1, steps_per_epoch=num_batchs)
+            model.evaluate(test_set)
+            print('')
 
 
 if __name__ == "__main__":
     # tf.random.set_seed(146)
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', help='Task to execute. cora for Cora dataset, and toy for sanity check purposes.')
+    parser.add_argument('task', help='Task to execute. cora, pubmed-diabetes or toy (sanity_check)')
     args = parser.parse_args()
     if args.task == 'cora':
-        learn_cora_dataset('forward', num_hops=3, num_epochs=50, batch_size=32, split_ratio=0.66)
+        node_classification(dataset.read_cora,
+                            orientation='forward',
+                            forward=True,
+                            reverse=True,
+                            num_hops=3,
+                            num_epochs=50,
+                            batch_size=32,
+                            split_ratio=0.1,
+                            bias=False)
+    elif args.task == 'pubmed-diabetes':
+        node_classification(dataset.read_pubmed_diabetes,
+                            orientation='forward',
+                            forward=True,
+                            reverse=True,
+                            num_hops=3,
+                            num_epochs=50,
+                            batch_size=32,
+                            split_ratio=0.1,
+                            bias=True)
     elif args.task == 'toy':
-        node_classification_task('tests/petersen_topology_10.txt',
-                                 'tests/toy_features_10.txt',
-                                 'forward', num_hops=4)
+        learn_toy('tests/petersen_topology_10.txt',
+                  'tests/toy_features_10.txt',
+                  'forward', num_hops=4)
     else:
         print('Unknown task %s'%args.task)
+        parser.print_help()

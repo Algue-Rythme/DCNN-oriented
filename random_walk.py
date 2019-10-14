@@ -1,8 +1,9 @@
 import tensorflow as tf
 
 
-def from_adjacency_to_transition(adj):
-    row_sums = tf.reduce_sum(adj, axis=1, keepdims=True)
+def from_adjacency_to_transition(adj, sparse=False):
+    reduce_fn = tf.sparse.reduce_sum if sparse else tf.reduce_sum
+    row_sums = reduce_fn(adj, axis=1, keepdims=True)
     row_sums = tf.maximum(row_sums, tf.constant(1., dtype=tf.float32))
     transition = adj / row_sums
     return transition
