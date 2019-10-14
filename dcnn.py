@@ -31,13 +31,13 @@ def sparse_diffuse_features(orientation, p, features, num_hops):
 
     Args:
         orientation: whether to walk in reverse time
-        p: transition matrix (float32 tensor)
+        p: transition matrix (float32 sparse tensor)
         features: float32 tensor of shape NxF
         num_hops: integer, number of steps in random walk
         include_identity: include 0-length steps
 
     Returns:
-        float32 tensor of shape NxHxF
+        float32 dense tensor of shape NxHxF
     """
     if orientation == 'reversed':
         raise NotImplementedError()
@@ -92,7 +92,8 @@ class DCNN(tf.keras.Model):
         self._num_hops = num_hops
         self._output_dim = output_dim
         self._dc = DiffusionConvolution(self._num_features, self._num_hops, bias)
-        self._fc = tf.keras.layers.Dense(output_dim)
+        # self._fc1 = tf.keras.layers.Dense(256)
+        self._fc2 = tf.keras.layers.Dense(output_dim)
 
 
     def call(self, x):
@@ -105,7 +106,9 @@ class DCNN(tf.keras.Model):
             y: float32 Tensor of shape Nx1
         """
         y = self._dc(x)
-        y = tf.nn.tanh(y)
+        y = tf.nn.relu(y)
         y = tf.reshape(y, shape=[-1, self._num_features * self._num_hops])
-        y = self._fc(y)
+        # y = self._fc1(y)
+        # y = tf.nn.relu(y)
+        y = self._fc2(y)
         return y

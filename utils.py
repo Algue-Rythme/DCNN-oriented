@@ -37,3 +37,9 @@ def shuffle_and_split(x, y, split_ratio):
     x_test = shuffled_x[:train_lim,:]
     y_test = shuffled_y[:train_lim]
     return (x_train, y_train), (x_test, y_test)
+
+def standardize_features(features):
+    mean = tf.math.reduce_mean(features, axis=1, keepdims=True)
+    std = tf.math.reduce_std(features, axis=1, keepdims=True)
+    features = (features - mean) / std
+    return features
