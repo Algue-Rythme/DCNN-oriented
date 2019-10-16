@@ -1,3 +1,4 @@
+import math
 import tensorflow as tf
 
 
@@ -29,6 +30,10 @@ def get_power_serie(p, max_step):
     return p_star
 
 
+def get_sparse_stationary_distribution(_):
+    raise NotImplementedError()
+
+
 def get_naive_stationary_distribution(p):
     n = p.shape[0]
     # n**2 is the average length of a random walk in a graph before visiting
@@ -37,7 +42,7 @@ def get_naive_stationary_distribution(p):
     p_lim = tf.math.pow(p, max_it)
     # average instead of only one column for improved robustness
     # one should check the error introduced by this method
-    return tf.reduce_mean(p_lim, axis=0)
+    return tf.reduce_mean(p_lim, axis=1)
 
 
 def get_reversed_time_distribution(p):

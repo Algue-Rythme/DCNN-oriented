@@ -80,7 +80,7 @@ def node_classification(dataset_reader, orientation, forward, reverse,
 if __name__ == "__main__":
     # tf.random.set_seed(146)
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', help='Task to execute. cora, pubmed-diabetes or toy (sanity_check)')
+    parser.add_argument('task', help='Task to execute. cora, pubmed-diabetes, citeseer or toy (sanity_check)')
     args = parser.parse_args()
     if args.task == 'cora':
         node_classification(dataset.read_cora,
@@ -88,7 +88,16 @@ if __name__ == "__main__":
                             forward=True,
                             reverse=True,
                             num_hops=3,
-                            num_epochs=50,
+                            num_epochs=100,
+                            batch_size=32,
+                            test_ratio=(2/3))
+    elif args.task == 'citeseer':
+        node_classification(dataset.read_cora,
+                            orientation='forward',
+                            forward=True,
+                            reverse=True,
+                            num_hops=3,
+                            num_epochs=100,
                             batch_size=32,
                             test_ratio=(2/3))
     elif args.task == 'pubmed-diabetes':
@@ -97,11 +106,9 @@ if __name__ == "__main__":
                             forward=True,
                             reverse=True,
                             num_hops=3,
-                            num_epochs=50,
-                            batch_size=32,
-                            test_ratio=(2/3),
-                            standardize=True,
-                            bias=True)
+                            num_epochs=100,
+                            batch_size=8,
+                            test_ratio=(2/3))
     elif args.task == 'toy':
         learn_toy('tests/petersen_topology_10.txt',
                   'tests/toy_features_10.txt',
